@@ -21,7 +21,6 @@ CATEGORY_MAP = {
     "LAW": "Legal & Constitution"
 }
 
-# Professional Color Palette for Ministries
 CATEGORY_COLORS = {
     "ADM": "bg-slate-100 text-slate-700 border-slate-200 ring-slate-200",
     "FIN": "bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-200",
@@ -33,22 +32,20 @@ CATEGORY_COLORS = {
 
 # --- 2. LOGIC: Advanced Classification ---
 def classify_chapter(row):
-    """Determines the Ministry Code based on keywords in multiple columns."""
-    # Combine relevant columns to search for keywords (Active search)
     text = f"{str(row.get('Section_Ministry', ''))} {str(row.get('Category', ''))} {str(row.get('Resolution_ID', ''))} {str(row.get('Title', ''))}".upper()
     
-    # Priority Logic (Specific beats General)
     if "LAW" in text or "LEGAL" in text or "CONSTITUTION" in text or "JUSTICE" in text: return "LAW"
     if "FIN" in text or "BUDGET" in text or "AUDIT" in text or "BBT" in text: return "FIN"
     if "EDU" in text or "EDUCATION" in text or "ACADEMIC" in text or "SASTRIC" in text: return "EDU"
     if "GUR" in text or "GURU" in text or "SANNYASA" in text or "INITIATION" in text: return "GUR"
     if "ZON" in text or "ZONE" in text or "GBC ZONAL" in text: return "ZON"
-    
-    # Default fallback
     return "ADM"
 
-# --- 3. DATA ENGINE: Smart Loader ---
+# --- 3. DATA ENGINE: Smart Loader & Indexer ---
+RESOLUTION_INDEX = {}  # Global lookup for Year tracing
+
 def load_data():
+    global RESOLUTION_INDEX
     data_folder = "data"
     if not os.path.exists(data_folder): return pd.DataFrame()
     
@@ -62,20 +59,18 @@ def load_data():
         if filepath.endswith('.csv'): df = pd.read_csv(filepath)
         else: df = pd.read_excel(filepath)
 
-        # 1. Clean Year
+        # 1. Clean Data
         df['Year'] = pd.to_numeric(df['Year'], errors='coerce').fillna(0).astype(int)
-        
-        # 2. Apply Classification
         df['Chapter_Code'] = df.apply(classify_chapter, axis=1)
         df['Chapter_Name'] = df['Chapter_Code'].map(CATEGORY_MAP)
-        
-        # 3. Create Eras (Shelves)
         df['Shelf'] = df['Year'].apply(lambda y: f"{int(y//10 * 10)}s")
-        
-        # 4. Normalize Status for easy checking
         df['Is_Active'] = df['Status'].astype(str).str.lower() == 'active'
         
-        # 5. Sort by Year then Resolution ID
+        # 2. Build Index for Traceability (ID -> Year)
+        # We handle NaN and ensure IDs are strings
+        temp_df = df[['Resolution_ID', 'Year']].dropna()
+        RESOLUTION_INDEX = dict(zip(temp_df['Resolution_ID'].astype(str), temp_df['Year']))
+        
         return df.sort_values(['Year', 'Resolution_ID'])
         
     except Exception as e:
@@ -94,11 +89,27 @@ def build_nav():
 
 NAV_TREE = build_nav()
 
+# --- 4. TRACEABILITY ENGINE ---
+def get_related_resolutions(id_string):
+    """Parses a comma-separated string of IDs and finds their Years."""
+    if not id_string or pd.isna(id_string):
+        return []
+    
+    links = []
+    # Split by comma or semicolon, strip whitespace
+    raw_ids = [x.strip() for x in re.split(r'[,;]', str(id_string)) if x.strip()]
+    
+    for rid in raw_ids:
+        # Lookup Year in our global index
+        year = RESOLUTION_INDEX.get(rid, "Unknown")
+        links.append({"id": rid, "year": year})
+        
+    return links
+
 # --- ROUTES ---
 
 @app.get("/")
 async def index(request: Request, q: str = None):
-    """Homepage & Global Search"""
     results = []
     if q and not DF.empty:
         mask = (
@@ -116,9 +127,7 @@ async def index(request: Request, q: str = None):
 
 @app.get("/book/{year}")
 async def book_overview(request: Request, year: int):
-    """Year Overview"""
     if DF.empty: return templates.TemplateResponse("base.html", {"request": request, "nav": NAV_TREE})
-
     book_df = DF[DF['Year'] == year]
     
     stats = {
@@ -128,7 +137,6 @@ async def book_overview(request: Request, year: int):
     }
     stats['primary_name'] = CATEGORY_MAP.get(stats['primary_code'], "Administrative")
 
-    # Grouping
     chapters = {}
     for code, name in CATEGORY_MAP.items():
         chapters[code] = book_df[book_df['Chapter_Code'] == code].to_dict('records')
@@ -142,13 +150,19 @@ async def book_overview(request: Request, year: int):
 
 @app.get("/page/{res_id}")
 async def page_view(request: Request, res_id: str):
-    """Single Resolution View"""
     if DF.empty: return templates.TemplateResponse("base.html", {"request": request, "nav": NAV_TREE})
     try:
         res = DF[DF['Resolution_ID'] == res_id].iloc[0].to_dict()
+        
+        # --- CALCULATE TRACES ---
+        amends = get_related_resolutions(res.get('Amends_IDs'))
+        repeals = get_related_resolutions(res.get('Repeals_IDs'))
+        superseded_by = get_related_resolutions(res.get('Superseded_By'))
+        
         return templates.TemplateResponse("resolution.html", {
             "request": request, "res": res, "years": ALL_YEARS, "nav": NAV_TREE,
-            "cat_map": CATEGORY_MAP, "cat_colors": CATEGORY_COLORS
+            "cat_map": CATEGORY_MAP, "cat_colors": CATEGORY_COLORS,
+            "trace": {"amends": amends, "repeals": repeals, "superseded": superseded_by}
         })
     except IndexError:
         return templates.TemplateResponse("base.html", {"request": request, "nav": NAV_TREE})

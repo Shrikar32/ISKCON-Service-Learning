@@ -11,7 +11,7 @@
         </span>
     </nav>
 
-    <header class="text-center mb-12 print:mb-8">
+    <header class="text-center mb-8 print:mb-8">
         <h1 class="text-4xl md:text-5xl font-black text-slate-900 mb-8 leading-tight tracking-tight">{{ res.Title }}</h1>
         
         <div class="inline-flex items-center gap-5 px-8 py-3 bg-white rounded-full border border-slate-200 shadow-sm text-sm print:border-0 print:shadow-none print:px-0">
@@ -30,8 +30,57 @@
         </div>
     </header>
 
-    <article class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative print:border-0 print:shadow-none">
+    {% if trace.amends or trace.repeals or trace.superseded %}
+    <div class="mb-10 p-5 bg-slate-50 rounded-xl border border-slate-200 text-sm no-print">
+        <h3 class="font-bold text-slate-400 uppercase text-[10px] tracking-widest mb-3">Legislative Traceability</h3>
         
+        <div class="space-y-2">
+            {% if trace.amends %}
+            <div class="flex items-start gap-3">
+                <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold w-24 text-center shrink-0">AMENDS</span>
+                <div class="flex flex-wrap gap-2">
+                    {% for item in trace.amends %}
+                    <a href="/page/{{ item.id }}" class="group flex items-center gap-1 font-mono font-bold text-indigo-600 hover:underline">
+                        {{ item.id }}
+                        <span class="text-slate-400 font-sans font-normal text-xs group-hover:text-slate-600">({{ item.year }})</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if trace.repeals %}
+            <div class="flex items-start gap-3">
+                <span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-xs font-bold w-24 text-center shrink-0">REPEALS</span>
+                <div class="flex flex-wrap gap-2">
+                    {% for item in trace.repeals %}
+                    <a href="/page/{{ item.id }}" class="group flex items-center gap-1 font-mono font-bold text-rose-600 hover:underline">
+                        {{ item.id }}
+                        <span class="text-slate-400 font-sans font-normal text-xs group-hover:text-slate-600">({{ item.year }})</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if trace.superseded %}
+            <div class="flex items-start gap-3">
+                <span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-bold w-24 text-center shrink-0">UPDATED BY</span>
+                <div class="flex flex-wrap gap-2">
+                    {% for item in trace.superseded %}
+                    <a href="/page/{{ item.id }}" class="group flex items-center gap-1 font-mono font-bold text-amber-600 hover:underline">
+                        {{ item.id }}
+                        <span class="text-slate-400 font-sans font-normal text-xs group-hover:text-slate-600">({{ item.year }})</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <article class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative print:border-0 print:shadow-none">
         <div class="absolute top-0 left-0 w-full h-1.5 {{ cat_colors[res.Chapter_Code].split(' ')[0].replace('bg-', 'bg-') }}-400 no-print"></div>
 
         <div class="bg-slate-50/80 border-b border-slate-100 px-8 py-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-xs print:bg-transparent print:border-b-2 print:border-slate-800">
