@@ -121,8 +121,6 @@ async def book_overview(request: Request, year: str):
         chap_df = year_df[year_df['Chapter'] == chap]
         
         # Group by Category Code (e.g., C, E, S)
-        # Assuming there is a 'Code' or 'Category' column. 
-        # Adjust 'Code' below to match your Excel column name exactly.
         cat_groups = {}
         if 'Code' in chap_df.columns:
             # Group by existing codes
@@ -146,7 +144,7 @@ async def book_overview(request: Request, year: str):
         "chapters": chapters_data,
         "nav": NAV_TREE,
         "cat_colors": CATEGORY_COLORS,
-        "cat_map": CATEGORY_MAP   # <--- FIX WAS APPLIED HERE
+        "cat_map": CATEGORY_MAP   # <--- THIS IS THE KEY FIX
     })
 
 @app.get("/refresh")
