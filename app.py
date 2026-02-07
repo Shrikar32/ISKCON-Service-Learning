@@ -1,7 +1,8 @@
 import pandas as pd
 import os
 import re
-from fastapi import FastAPI, Request, HTTPException
+from typing import Optional
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
@@ -9,7 +10,6 @@ from fastapi.responses import RedirectResponse
 # --- 1. INITIALIZATION ---
 app = FastAPI()
 
-# Ensure static folder exists for images
 if not os.path.exists("static"):
     os.makedirs("static")
 
@@ -17,15 +17,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # --- 2. CONFIGURATION ---
-CATEGORY_MAP = {
-    "ADM": "Administrative & Appointments",
-    "FIN": "Financial & Budgetary",
-    "GUR": "Sannyasa & Guru Matters",
-    "ZON": "Zonal Assignments",
-    "EDU": "Education & Training",
-    "LAW": "Legal & Constitution"
-}
-
 CATEGORY_COLORS = {
     "ADM": "bg-slate-100 text-slate-700 border-slate-200",
     "FIN": "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -34,187 +25,140 @@ CATEGORY_COLORS = {
     "EDU": "bg-sky-50 text-sky-700 border-sky-200",
     "LAW": "bg-rose-50 text-rose-700 border-rose-200"
 }
+MINISTRY_CODE_MAP = ["ADM", "FIN", "GUR", "ZON", "EDU", "LAW"]
 
-# Intelligence Indexes
-RESOLUTION_META = {} 
-REVERSE_LINKS = {} 
+RESOLUTION_META = {}
+REVERSE_LINKS = {}
 
 # --- 3. HELPERS ---
 def clean_id_list(id_str):
-    if pd.isna(id_str) or not str(id_str).strip():
-        return []
+    if pd.isna(id_str) or not str(id_str).strip(): return []
     return [x.strip() for x in re.split(r'[,;]', str(id_str)) if x.strip()]
 
 def resolve_links(id_list_str, rel_type):
     links = []
     for rid in clean_id_list(id_list_str):
-        meta = RESOLUTION_META.get(rid, {"year": "Unknown", "date": "Unknown"})
-        links.append({
-            "id": rid,
-            "type": rel_type,
-            "year": meta['year'],
-            "date": meta['date']
-        })
+        rid_clean = str(rid).strip()
+        meta = RESOLUTION_META.get(rid_clean)
+        if meta:
+            links.append({"id": rid_clean, "type": rel_type, "year": meta.get('year', 'N/A'), "date": meta.get('date', 'N/A')})
+        else:
+            links.append({"id": rid_clean, "type": rel_type, "year": "Ref", "date": "External"})
     return links
 
 def get_era(year):
     try:
         y = int(year)
-        return f"{int(y//10 * 10)}s"
-    except:
-        return "Unknown"
+        return f"{int(y//10 * 10)}s" if y > 0 else "Unknown"
+    except: return "Unknown"
 
 # --- 4. DATA ENGINE ---
 def load_data():
     global RESOLUTION_META, REVERSE_LINKS
-    RESOLUTION_META = {}
-    REVERSE_LINKS = {}
-    
+    RESOLUTION_META, REVERSE_LINKS = {}, {}
     data_folder = "data"
-    if not os.path.exists(data_folder): 
-        return pd.DataFrame()
-    
-    files = [f for f in os.listdir(data_folder) if f.endswith(('.csv', '.xlsx'))]
-    if not files: 
-        return pd.DataFrame()
+    if not os.path.exists(data_folder): return pd.DataFrame()
+    files = [f for f in os.listdir(data_folder) if f.endswith(('.csv', '.xlsx')) and not f.startswith('~$')]
+    if not files: return pd.DataFrame()
     
     filepath = os.path.join(data_folder, files[0])
-    
     try:
-        if filepath.endswith('.csv'): 
-            df = pd.read_csv(filepath)
-        else: 
-            df = pd.read_excel(filepath)
+        df = pd.read_csv(filepath) if filepath.endswith('.csv') else pd.read_excel(filepath)
+        df.columns = [c.strip() for c in df.columns]
+        col_map = {c.lower().replace(" ", "").replace("_", ""): c for c in df.columns}
+        
+        target_id = col_map.get('resolutionid', 'Resolution_ID')
+        target_text = col_map.get('fulltext', 'Full_Text')
+        target_title = col_map.get('title', 'Title')
+        target_year = col_map.get('year', 'Year')
 
-        # Basic Cleaning
-        df['Year'] = pd.to_numeric(df['Year'], errors='coerce').fillna(0).astype(int)
-        df['Is_Active'] = df['Status'].astype(str).str.lower() == 'active'
+        df['Resolution_ID'] = df[target_id].fillna("MISSING-ID").astype(str)
+        df['Full_Text'] = df[target_text].fillna("").astype(str)
+        df['Title'] = df[target_title].fillna("Untitled").astype(str)
+        df['Year'] = pd.to_numeric(df[target_year], errors='coerce').fillna(0).astype(int)
+        df['Is_Active'] = df.get('Status', pd.Series(['active']*len(df))).astype(str).str.lower() == 'active'
         df['Shelf'] = df['Year'].apply(get_era)
 
-        # Smart Ministry Classifier
-        def get_ministry_code(row):
+        if 'Section_Ministry' not in df.columns: df['Section_Ministry'] = 'Uncategorized'
+        if 'Category' not in df.columns: df['Category'] = 'General'
+        if 'Scope' not in df.columns: df['Scope'] = 'Global'
+
+        def get_min_code(row):
             code = str(row.get('Section_Ministry', '')).upper()
-            if code in CATEGORY_MAP: return code
-            text = f"{code} {str(row.get('Category', ''))} {str(row.get('Resolution_ID', ''))} {str(row.get('Title', ''))}".upper()
-            if "LAW" in text or "LEGAL" in text: return "LAW"
-            if "FIN" in text or "BUDGET" in text: return "FIN"
-            if "EDU" in text or "ACADEMIC" in text: return "EDU"
-            if "GUR" in text or "INITIATION" in text: return "GUR"
-            if "ZON" in text: return "ZON"
+            if code in MINISTRY_CODE_MAP: return code
             return "ADM"
+        df['Chapter_Code'] = df.apply(get_min_code, axis=1)
 
-        df['Chapter_Code'] = df.apply(get_ministry_code, axis=1)
-
-        # Build Intelligence Indexes
         for _, row in df.iterrows():
             rid = str(row['Resolution_ID']).strip()
-            RESOLUTION_META[rid] = {
-                "year": row['Year'],
-                "date": str(row.get('Date_Passed', row['Year'])),
-                "title": row['Title']
-            }
-
-            # Map Amendments/Repeals to create Backward Traces
-            for target in clean_id_list(row.get('Amends_IDs')):
-                if target not in REVERSE_LINKS: REVERSE_LINKS[target] = []
-                REVERSE_LINKS[target].append({"type": "AMENDED BY", "source_id": rid, "date": row.get('Date_Passed', row['Year'])})
-
-            for target in clean_id_list(row.get('Repeals_IDs')):
-                if target not in REVERSE_LINKS: REVERSE_LINKS[target] = []
-                REVERSE_LINKS[target].append({"type": "REPEALED BY", "source_id": rid, "date": row.get('Date_Passed', row['Year'])})
-
-        return df.sort_values(['Year', 'Resolution_ID'])
+            RESOLUTION_META[rid] = {"year": row['Year'], "date": str(row.get('Date_Passed', row['Year'])), "title": row['Title']}
+            for target in clean_id_list(row.get('Amends_IDs', '')):
+                REVERSE_LINKS.setdefault(str(target).strip(), []).append({"type": "AMENDED BY", "source_id": rid, "date": str(row.get('Date_Passed', row['Year']))})
         
+        print(f"✅ Data Loaded: {len(df)} records.")
+        return df.sort_values(['Year', 'Resolution_ID'], ascending=[False, True])
     except Exception as e:
-        print(f"❌ DATA ERROR: {e}")
+        print(f"❌ Load Error: {e}")
         return pd.DataFrame()
 
-# Boot Data
 DF = load_data()
-ALL_YEARS = sorted(DF['Year'].unique(), reverse=True) if not DF.empty else []
-NAV_TREE = {shelf: sorted(DF[DF['Shelf']==shelf]['Year'].unique(), reverse=True) 
-            for shelf in sorted(DF['Shelf'].unique(), reverse=True)} if not DF.empty else {}
+UNIQUE_MINISTRIES = sorted(DF['Section_Ministry'].dropna().unique().tolist()) if not DF.empty else []
+UNIQUE_CATEGORIES = sorted(DF['Category'].dropna().unique().tolist()) if not DF.empty else []
+UNIQUE_SCOPES = sorted(DF['Scope'].dropna().unique().tolist()) if not DF.empty else []
+NAV_TREE = {}
+if not DF.empty:
+    for shelf in sorted(DF['Shelf'].unique(), reverse=True):
+        if shelf != "Unknown":
+            NAV_TREE[shelf] = sorted(DF[DF['Shelf'] == shelf]['Year'].unique(), reverse=True)
 
 # --- 5. ROUTES ---
 
 @app.get("/")
-async def index(request: Request, q: str = None):
-    results = []
-    if q and not DF.empty:
-        mask = DF['Full_Text'].str.contains(q, case=False, na=False) | DF['Resolution_ID'].str.contains(q, case=False, na=False)
-        results = DF[mask].to_dict('records')
-    return templates.TemplateResponse("base.html", {
-        "request": request, "nav": NAV_TREE, "years": ALL_YEARS, 
-        "results": results, "query": q, "cat_colors": CATEGORY_COLORS
-    })
-
-@app.get("/book/{year}")
-async def book_overview(request: Request, year: int):
-    if DF.empty: return RedirectResponse("/")
-    
-    book_df = DF[DF['Year'] == year]
-    
-    # Safe Stats
-    primary_code = "ADM"
-    if not book_df.empty:
-        valid_modes = book_df['Chapter_Code'].dropna()
-        if not valid_modes.empty:
-            primary_code = valid_modes.mode()[0]
-
+async def home(request: Request):
     stats = {
-        "total": len(book_df),
-        "active": len(book_df[book_df['Is_Active']]),
-        "primary": primary_code
+        "count": len(DF),
+        "min_year": int(DF['Year'].min()) if not DF.empty else 0,
+        "max_year": int(DF['Year'].max()) if not DF.empty else 0,
+        "ministries": len(UNIQUE_MINISTRIES)
     }
+    return templates.TemplateResponse("home.html", {"request": request, "stats": stats})
 
-    chapters = {code: book_df[book_df['Chapter_Code'] == code].to_dict('records') for code in CATEGORY_MAP}
+@app.get("/archive")
+async def archive(request: Request, q: Optional[str] = None, ministry: Optional[str] = None, category: Optional[str] = None, scope: Optional[str] = None, year: Optional[str] = None):
+    if DF.empty:
+        return templates.TemplateResponse("archive.html", {"request": request, "results": [], "nav": {}})
     
-    return templates.TemplateResponse("year_overview.html", {
-        "request": request, 
-        "year": year, 
-        "shelf": get_era(year),
-        "years": ALL_YEARS, 
-        "stats": stats, 
-        "chapters": chapters, 
-        "nav": NAV_TREE, 
-        "cat_map": CATEGORY_MAP, 
+    filtered_df = DF.copy()
+    if ministry and ministry != "": filtered_df = filtered_df[filtered_df['Section_Ministry'] == ministry]
+    if category and category != "": filtered_df = filtered_df[filtered_df['Category'] == category]
+    if scope and scope != "": filtered_df = filtered_df[filtered_df['Scope'] == scope]
+    if year and year.isdigit(): filtered_df = filtered_df[filtered_df['Year'] == int(year)]
+    
+    if q:
+        mask = filtered_df['Full_Text'].str.contains(q, case=False, na=False) | \
+               filtered_df['Resolution_ID'].str.contains(q, case=False, na=False) | \
+               filtered_df['Title'].str.contains(q, case=False, na=False)
+        filtered_df = filtered_df[mask]
+
+    results = filtered_df.to_dict('records')
+    return templates.TemplateResponse("archive.html", {
+        "request": request, "results": results, "query": q, "nav": NAV_TREE,
+        "ministries": UNIQUE_MINISTRIES, "categories": UNIQUE_CATEGORIES, "scopes": UNIQUE_SCOPES,
+        "selected_ministry": ministry, "selected_category": category, "selected_scope": scope, "selected_year": year,
         "cat_colors": CATEGORY_COLORS
     })
 
 @app.get("/page/{res_id}")
 async def page_view(request: Request, res_id: str):
-    if DF.empty: return RedirectResponse("/")
+    res_id_clean = str(res_id).strip()
+    res_row = DF[DF['Resolution_ID'].astype(str).str.strip() == res_id_clean]
+    if res_row.empty: return RedirectResponse("/archive")
     
-    try:
-        res_row = DF[DF['Resolution_ID'].astype(str).str.strip() == str(res_id).strip()]
-        if res_row.empty:
-            raise HTTPException(status_code=404)
-            
-        res = res_row.iloc[0].to_dict()
-        
-        # Forward Trace
-        forward_trace = []
-        forward_trace += resolve_links(res.get('Amends_IDs'), "AMENDS")
-        forward_trace += resolve_links(res.get('Repeals_IDs'), "REPEALS")
-        
-        # Backward Trace
-        backward_trace = []
-        backward_trace += resolve_links(res.get('Superseded_By'), "SUPERSEDED BY")
-        if res_id in REVERSE_LINKS:
-            backward_trace += REVERSE_LINKS[res_id]
-
-        return templates.TemplateResponse("resolution.html", {
-            "request": request, "res": res, "years": ALL_YEARS, "nav": NAV_TREE,
-            "cat_map": CATEGORY_MAP, "cat_colors": CATEGORY_COLORS,
-            "trace": {"forward": forward_trace, "backward": backward_trace}
-        })
-    except:
-        return RedirectResponse("/")
-
-@app.get("/refresh")
-async def refresh():
-    global DF, ALL_YEARS, NAV_TREE
-    DF = load_data()
-    ALL_YEARS = sorted(DF['Year'].unique(), reverse=True)
-    NAV_TREE = {shelf: sorted(DF[DF['Shelf']==shelf]['Year'].unique(), reverse=True) for shelf in sorted(DF['Shelf'].unique(), reverse=True)}
-    return {"status": "success"}
+    res = res_row.iloc[0].to_dict()
+    trace = {
+        "forward": resolve_links(res.get('Amends_IDs'), "AMENDS") + resolve_links(res.get('Repeals_IDs'), "REPEALS"),
+        "backward": REVERSE_LINKS.get(res_id_clean, [])
+    }
+    return templates.TemplateResponse("resolution.html", {
+        "request": request, "res": res, "trace": trace, "cat_colors": CATEGORY_COLORS, "nav": NAV_TREE
+    })

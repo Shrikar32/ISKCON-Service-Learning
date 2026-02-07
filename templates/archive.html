@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form action="/archive" method="get" class="bg-white p-1 rounded-2xl shadow-xl shadow-stone-200/50 border border-subtle mb-6 md:mb-10 relative z-20">
+    <div class="flex flex-col lg:flex-row gap-2 p-2 md:p-4">
+        <div class="flex-1 relative group w-full">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <i class="fas fa-search text-gray-400 group-focus-within:text-gold transition-colors"></i>
+            </div>
+            <input type="text" name="q" value="{{ query or '' }}" 
+                   placeholder="Search..." 
+                   class="block w-full pl-10 md:pl-12 pr-4 py-3 bg-gray-50 border-transparent rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-gold/30 focus:ring-4 focus:ring-orange-50/50 transition-all text-sm md:text-base font-medium">
+        </div>
+
+        <div class="flex gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide w-full lg:w-auto">
+            <select name="ministry" class="bg-white border border-subtle text-gray-600 text-sm rounded-xl focus:ring-gold focus:border-gold block px-4 py-3 hover:border-gray-300 cursor-pointer transition-colors min-w-[140px] flex-shrink-0">
+                <option value="">All Ministries</option>
+                {% for m in ministries %}
+                <option value="{{ m }}" {% if selected_ministry == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="category" class="bg-white border border-subtle text-gray-600 text-sm rounded-xl focus:ring-gold focus:border-gold block px-4 py-3 hover:border-gray-300 cursor-pointer transition-colors min-w-[140px] flex-shrink-0">
+                <option value="">All Categories</option>
+                {% for c in categories %}
+                <option value="{{ c }}" {% if selected_category == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+            
+            <button type="submit" class="bg-ink hover:bg-black text-white px-6 md:px-8 py-3 rounded-xl font-medium shadow-lg shadow-gray-200 transition-all active:scale-95 whitespace-nowrap flex-shrink-0">
+                Search
+            </button>
+        </div>
+    </div>
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center px-4 md:px-5 pb-3 pt-0 text-xs text-gray-500 gap-2">
+       <div class="flex items-center gap-2">
+           <span>Scope:</span>
+           <select name="scope" class="bg-transparent border-none p-0 text-xs font-bold text-gray-700 focus:ring-0 cursor-pointer hover:text-gold">
+                <option value="">Global & Local</option>
+                {% for s in scopes %}
+                <option value="{{ s }}" {% if selected_scope == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+           </select>
+       </div>
+       {% if query or selected_ministry or selected_category or selected_year %}
+       <a href="/archive" class="text-red-500 hover:text-red-700 font-medium hover:underline self-end md:self-auto">Clear Filters ×</a>
+       {% endif %}
+    </div>
+</form>
+
+<div class="space-y-4 md:space-y-6">
+    <div class="flex items-baseline justify-between border-b border-subtle pb-4 mb-4 md:mb-6">
+        <h2 class="font-serif text-xl md:text-2xl text-ink font-semibold">Results</h2>
+        <span class="text-xs md:text-sm font-medium text-gray-400 bg-gray-100 px-2 md:px-3 py-1 rounded-full">{{ results|length }} docs</span>
+    </div>
+    
+    <div class="grid grid-cols-1 gap-4">
+        {% for r in results %}
+        <a href="/page/{{ r.Resolution_ID }}" class="group block bg-white border border-subtle rounded-xl p-5 md:p-6 hover:shadow-xl hover:shadow-stone-200/50 hover:border-gold/30 transition-all duration-300 relative overflow-hidden">
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-gold opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex flex-wrap items-center gap-2 md:gap-3">
+                    <span class="font-mono text-[10px] md:text-xs font-bold tracking-wider text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-100 group-hover:bg-orange-50 group-hover:text-gold group-hover:border-orange-100 transition-colors">
+                        {{ r.Resolution_ID }}
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border {{ cat_colors[r.Chapter_Code] if r.Chapter_Code in cat_colors else 'bg-gray-50 text-gray-600 border-gray-200' }}">
+                        {{ r.Chapter_Code }}
+                    </span>
+                </div>
+                <span class="text-xs md:text-sm font-serif italic text-gray-400 group-hover:text-gold transition-colors whitespace-nowrap ml-2">{{ r.Year }}</span>
+            </div>
+            <h3 class="font-serif text-lg md:text-xl font-medium text-ink mb-2 group-hover:text-gold transition-colors leading-snug">
+                {{ r.Title }}
+            </h3>
+            <p class="text-xs md:text-sm text-gray-500 line-clamp-2 leading-relaxed font-light">
+                {{ r.Full_Text }}
+            </p>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% if not results %}
+    <div class="flex flex-col items-center justify-center py-16 md:py-24 text-center">
+        <div class="w-16 h-16 md:w-24 md:h-24 bg-stone-100 rounded-full flex items-center justify-center mb-4 md:mb-6 text-stone-300 text-2xl md:text-4xl">
+            <i class="fas fa-feather-alt"></i>
+        </div>
+        <h3 class="font-serif text-xl md:text-2xl text-ink mb-2">No documents found</h3>
+        <p class="text-sm md:text-base text-gray-500 max-w-xs md:max-w-md mx-auto mb-6">We couldn't find anything matching your criteria.</p>
+        <a href="/archive" class="text-gold font-bold hover:underline text-sm md:text-base">Clear all filters</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

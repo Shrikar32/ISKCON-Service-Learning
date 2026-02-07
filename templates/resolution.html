@@ -1,117 +1,98 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto animate-fade-in-up print:w-full print:max-w-none">
-    
-    <nav class="flex items-center gap-3 text-xs text-slate-400 font-bold uppercase tracking-widest mb-8 no-print">
-        <a href="/book/{{ res.Year }}" class="hover:text-indigo-600 transition-colors">Book {{ res.Year }}</a>
-        <svg class="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        <span class="{{ cat_colors[res.Chapter_Code] }} px-2 py-0.5 rounded border shadow-sm">
-            {{ cat_map[res.Chapter_Code] }}
-        </span>
+<div class="max-w-4xl mx-auto">
+    <nav class="flex items-center text-[10px] md:text-xs text-gray-400 mb-6 md:mb-8 font-medium uppercase tracking-wider overflow-x-auto whitespace-nowrap pb-2">
+        <a href="/archive" class="hover:text-gold transition-colors">Archive</a>
+        <span class="mx-2 md:mx-3 text-gray-300">/</span>
+        <a href="/archive?year={{ res.Year }}" class="hover:text-gold transition-colors">{{ res.Year }}</a>
+        <span class="mx-2 md:mx-3 text-gray-300">/</span>
+        <span class="text-gray-800">{{ res.Resolution_ID }}</span>
     </nav>
 
-    <header class="text-center mb-10 print:mb-6">
-        <h1 class="text-4xl md:text-5xl font-black text-slate-900 mb-6 leading-tight tracking-tight">{{ res.Title }}</h1>
-        
-        <div class="inline-flex flex-wrap justify-center items-center gap-4 px-6 py-3 bg-white rounded-2xl border border-slate-200 shadow-sm text-sm print:border-0 print:shadow-none print:px-0">
-            <span class="font-mono text-slate-500 font-bold">ID: {{ res.Resolution_ID }}</span>
-            <span class="w-px h-4 bg-slate-200 no-print"></span>
+    <div class="bg-white border border-subtle shadow-lg md:shadow-2xl md:shadow-stone-200/40 rounded-xl md:rounded-2xl overflow-hidden relative">
+        <div class="h-1.5 md:h-2 bg-gradient-to-r from-ink via-gray-700 to-ink"></div>
+        <div class="p-6 md:p-12">
             
-            <div class="flex items-center gap-2">
-                {% if res.Is_Active %}
-                <span class="block w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-lg no-print"></span>
-                <span class="text-emerald-700 font-black uppercase tracking-wide">Active</span>
-                {% else %}
-                <span class="block w-2.5 h-2.5 rounded-full bg-slate-300 no-print"></span>
-                <span class="text-slate-500 font-bold uppercase tracking-wide">{{ res.Status }}</span>
-                {% endif %}
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 mb-8 md:mb-10 pb-6 md:pb-8 border-b border-gray-100">
+                <div class="flex flex-wrap gap-2 md:gap-3">
+                    <span class="px-2 md:px-3 py-1 rounded bg-stone-100 text-stone-600 text-[10px] md:text-xs font-bold uppercase tracking-widest border border-stone-200">
+                        {{ res.Chapter_Code }}
+                    </span>
+                    {% if not res.Is_Active %}
+                    <span class="px-2 md:px-3 py-1 rounded bg-red-50 text-red-600 text-[10px] md:text-xs font-bold uppercase tracking-widest border border-red-100">
+                        Repealed
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="text-left md:text-right">
+                    <div class="text-[10px] md:text-xs text-gray-400 uppercase tracking-widest mb-1">Resolution ID</div>
+                    <div class="font-mono text-base md:text-lg font-bold text-ink">{{ res.Resolution_ID }}</div>
+                </div>
             </div>
-        </div>
-    </header>
 
-    {% if trace.forward or trace.backward %}
-    <div class="mb-10 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden no-print">
-        <div class="bg-slate-100/50 px-5 py-3 border-b border-slate-200">
-            <h3 class="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Legislative History</h3>
-        </div>
-        
-        <div class="p-5 space-y-4">
-            {% if trace.backward %}
-            <div class="flex gap-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
-                <div class="shrink-0 pt-1 text-amber-500">⚠️</div>
-                <div class="text-sm">
-                    <span class="block font-bold text-amber-800 text-xs uppercase tracking-wide mb-1">Updates to this Document</span>
-                    <ul class="space-y-2">
-                        {% for item in trace.backward %}
-                        <li class="flex items-center gap-2">
-                            <span class="font-bold text-amber-700">{{ item.type }}</span>
-                            <a href="/page/{{ item.source_id if item.source_id else item.id }}" class="font-mono font-bold text-indigo-600 hover:underline">
-                                {{ item.source_id if item.source_id else item.id }}
+            <div class="text-center mb-8 md:mb-12">
+                <h1 class="font-serif text-2xl md:text-5xl font-medium text-ink leading-tight mb-4 md:mb-6">
+                    {{ res.Title }}
+                </h1>
+                <div class="flex flex-wrap items-center justify-center gap-4 md:gap-8 text-xs md:text-sm text-gray-500 font-medium">
+                    <div class="flex items-center gap-2">
+                        <i class="far fa-calendar text-gold"></i>
+                        <span>Passed: {{ res.Date_Passed or res.Year }}</span>
+                    </div>
+                    <div class="hidden md:block w-1 h-1 bg-gray-300 rounded-full"></div>
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-globe-americas text-gold"></i>
+                        <span>{{ res.Scope or 'General' }} Scope</span>
+                    </div>
+                </div>
+            </div>
+
+            {% if trace.forward or trace.backward %}
+            <div class="bg-stone-50 rounded-xl p-4 md:p-6 mb-8 md:mb-10 border border-stone-200/60">
+                <h3 class="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 md:mb-4">Related Documents</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% if trace.backward %}
+                    <div>
+                        <span class="text-[10px] font-bold text-amber-600 block mb-2">MODIFIED THIS RESOLUTION</span>
+                        <div class="space-y-2">
+                            {% for item in trace.backward %}
+                            <a href="/page/{{ item.source_id }}" class="flex items-center gap-3 bg-white p-3 rounded-lg border border-stone-200 hover:border-gold/50 hover:shadow-sm transition-all group">
+                                <i class="fas fa-history text-gray-300 group-hover:text-gold text-xs md:text-sm"></i>
+                                <span class="text-xs md:text-sm font-medium text-gray-700 group-hover:text-ink">{{ item.source_id }}</span>
+                                <span class="text-[10px] md:text-xs text-gray-400 ml-auto">{{ item.date }}</span>
                             </a>
-                            <span class="text-slate-500 text-xs">on {{ item.date }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if trace.forward %}
+                    <div>
+                        <span class="text-[10px] font-bold text-blue-600 block mb-2">REFERENCES / EFFECTS</span>
+                        <div class="space-y-2">
+                            {% for item in trace.forward %}
+                            <a href="/page/{{ item.id }}" class="flex items-center gap-3 bg-white p-3 rounded-lg border border-stone-200 hover:border-blue-300 hover:shadow-sm transition-all group">
+                                <i class="fas fa-link text-gray-300 group-hover:text-blue-500 text-xs md:text-sm"></i>
+                                <span class="text-xs md:text-sm font-medium text-gray-700 group-hover:text-ink">{{ item.id }}</span>
+                                <span class="text-[10px] md:text-xs text-gray-400 ml-auto">{{ item.year }}</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
 
-            {% if trace.forward %}
-            <div class="flex gap-4 px-3">
-                <div class="shrink-0 pt-1 text-indigo-500">⤵</div>
-                <div class="text-sm">
-                    <span class="block font-bold text-slate-400 text-xs uppercase tracking-wide mb-1">Actions taken by this Resolution</span>
-                    <ul class="space-y-2">
-                        {% for item in trace.forward %}
-                        <li class="flex items-center gap-2">
-                            <span class="font-bold text-slate-700">{{ item.type }}</span>
-                            <a href="/page/{{ item.id }}" class="font-mono font-bold text-indigo-600 hover:underline">
-                                {{ item.id }}
-                            </a>
-                            <span class="text-slate-500 text-xs">Passed: {{ item.date }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
+            <div class="prose prose-base md:prose-lg prose-stone max-w-none font-serif leading-loose text-gray-700 break-words">
+                {{ res.Full_Text }}
             </div>
-            {% endif %}
+
+        </div>
+        <div class="bg-stone-50 border-t border-stone-200 p-4 md:p-6 flex justify-between items-center text-[10px] md:text-xs text-gray-400">
+            <span>Official Record</span>
+            <span>GBCresolutions</span>
         </div>
     </div>
-    {% endif %}
-
-    <article class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative print:border-0 print:shadow-none">
-        <div class="absolute top-0 left-0 w-full h-1.5 {{ cat_colors[res.Chapter_Code].split(' ')[0].replace('bg-', 'bg-') }}-400 no-print"></div>
-
-        <div class="bg-slate-50/80 border-b border-slate-100 px-8 py-5 grid grid-cols-2 md:grid-cols-4 gap-6 text-xs print:bg-transparent print:border-b-2 print:border-slate-800">
-            <div>
-                <span class="block text-slate-400 font-bold uppercase mb-1">Date Passed</span>
-                <span class="font-semibold text-slate-800">{{ res.Date_Passed }}</span>
-            </div>
-            <div>
-                <span class="block text-slate-400 font-bold uppercase mb-1">Ministry</span>
-                <span class="font-semibold text-slate-800">{{ res.Section_Ministry if res.Section_Ministry else res.Chapter_Name }}</span>
-            </div>
-            <div>
-                <span class="block text-slate-400 font-bold uppercase mb-1">Scope</span>
-                <span class="font-semibold text-slate-800">{{ res.Scope }}</span>
-            </div>
-            <div>
-                <span class="block text-slate-400 font-bold uppercase mb-1">Official Code</span>
-                <span class="font-semibold text-slate-800 font-mono">{{ res.Official_Code }}</span>
-            </div>
-        </div>
-
-        <div class="p-10 md:p-16 print:p-0 print:pt-8 prose prose-slate prose-lg max-w-none font-serif leading-loose text-slate-800 text-justify">
-            {{ res.Full_Text }}
-        </div>
-        
-        {% if res.Notes %}
-        <div class="bg-amber-50/50 border-t border-amber-100 p-8 text-sm text-amber-900 italic print:bg-transparent print:border-slate-300">
-            <strong class="block not-italic text-xs font-bold uppercase text-amber-700 mb-1">Note</strong>
-            {{ res.Notes }}
-        </div>
-        {% endif %}
-    </article>
 </div>
 {% endblock %}

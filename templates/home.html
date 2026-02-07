@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GBCresolutions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+                    colors: { paper: '#fafaf9', ink: '#1c1917', gold: '#b45309', subtle: '#e7e5e4' }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-paper text-ink font-sans antialiased flex flex-col min-h-screen">
+    
+    <div class="flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] md:w-[800px] h-[600px] md:h-[800px] bg-gradient-to-br from-stone-100 to-transparent rounded-full -z-10"></div>
+
+        <div class="max-w-3xl w-full text-center space-y-8 z-10">
+            
+            <div class="w-16 h-16 md:w-20 md:h-20 bg-ink text-white rounded-2xl flex items-center justify-center text-2xl md:text-3xl shadow-2xl mx-auto mb-6">
+                <i class="fas fa-landmark"></i>
+            </div>
+
+            <div class="space-y-4">
+                <h1 class="font-serif text-4xl md:text-6xl font-bold text-ink tracking-tight">
+                    GBCresolutions
+                </h1>
+                <p class="text-base md:text-xl text-gray-500 font-light max-w-xl mx-auto leading-relaxed px-4">
+                    The official digital repository for ISKCON Governing Body Commission resolutions, statements, and laws.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 max-w-md mx-auto py-8 border-y border-stone-200">
+                <div class="text-center px-4 border-r border-stone-100 last:border-0">
+                    <div class="text-2xl md:text-3xl font-serif font-bold text-gold">{{ stats.count }}</div>
+                    <div class="text-[10px] md:text-xs uppercase tracking-widest text-gray-400 mt-1">Documents</div>
+                </div>
+                <div class="text-center px-4">
+                    <div class="text-2xl md:text-3xl font-serif font-bold text-ink">{{ stats.min_year }}-{{ stats.max_year }}</div>
+                    <div class="text-[10px] md:text-xs uppercase tracking-widest text-gray-400 mt-1">Timeline</div>
+                </div>
+            </div>
+
+            <div class="pt-4">
+                <a href="/archive" class="inline-flex items-center gap-3 bg-ink text-white text-base md:text-lg font-medium px-8 py-3 md:px-10 md:py-4 rounded-full shadow-xl hover:bg-black hover:scale-105 transition-all duration-300 group w-full md:w-auto justify-center">
+                    Enter Archive
+                    <i class="fas fa-arrow-right text-gold group-hover:translate-x-1 transition-transform"></i>
+                </a>
+            </div>
+
+            <div class="pt-12 text-xs md:text-sm text-gray-400">
+                <p>&copy; 2026 Governing Body Commission. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
